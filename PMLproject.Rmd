@@ -1,0 +1,54 @@
+---
+title: "PMLproject"
+author: "Solen Sanschagrin"
+date: "February 28, 2016"
+output: html_document
+---
+#Overview
+This report is an example of constructing a prediction model using tree models. It uses data from  [http://groupware.les.inf.puc-rio.br/har] to predict the form of an exercise using information from personal activity devices.
+
+#Data
+
+```{r cache=TRUE, echo=FALSE, results='hide', warning=FALSE}
+require(ggplot2)
+require(lattice)
+require(caret)
+require(randomForest)
+```
+
+Loading data and splitting the training set into a train and test set for cross validation.
+```{r, warning=FALSE, results='hide', message=FALSE}
+require(caret)
+training<-read.csv("pml-training.csv")
+testing<-read.csv("pml-testing.csv")
+set.seed(111)
+inTrain<-createDataPartition(training[,1],p=0.6,list=FALSE) #divide the training set 
+train<-training[inTrain,]                   #by random subsampling
+test<-training[-inTrain,]
+```
+
+ Elimination of features that are mostly NA values and the first 7 columns of data since the time stamps can be used to match directly to the particular movement made.
+```{r, warning=FALSE,results='hide'}
+missing<-is.na(training)
+unusedFeats<-which(colSums(missing)>0) #cols with NAs have 19216 missing values (data has 19622 rows)
+train<-train[,-c(1:7,unusedFeats)]
+test<-test[,-c(1:7,unusedFeats)]
+testing<-testing[,-c(1:7,unusedFeats)]
+```
+
+Hardware limitations currently keep from using the full extent of the `train()` function from the caret package so an example is made here using the three first features (after the time or window references), in this case: `names(train)[1:3]`.
+
+```{r, cache=TRUE,warning=FALSE,results='hide'}
+
+modelfitBelt<-train(classe~.,data=train[,c(1:3,ncol(train))],method="rpart",preProcess="pca")
+predictTrain<-predict(modelfitBelt,newdata=train[,1:3])
+predictTest<-predict(modelfitBelt,newdata=test[,1:3])
+trainSuccess<-sum(predictTrain==train[,86])/length(predictTrain)
+testSuccess<-sum(predictTest==test[,86])/length(predictTest)
+```
+The generated model:
+```{r}
+modelfitBelt
+```
+The data was preprocessed using the PCA method from the caret package for a success rate of `r round(trainSuccess,2)` on the `train` subset and of `r round(testSuccess,2)` on the `test` subset. The out of sample error is then estimated as 1-`r round(testSuccess,2)` =`r 1-round(testSuccess,2)`.
+
